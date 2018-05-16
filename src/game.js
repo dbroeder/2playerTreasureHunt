@@ -1,7 +1,7 @@
 let gameScene = new Phaser.Scene('Game');
 let config ={
     type: Phaser.AUTO,
-    width: 1000,
+    width: 1010,
     height: 500,
     scene: gameScene,
     physics:{
@@ -20,6 +20,7 @@ let dragons
 let keys
 let dragonKeys
 let treasure;
+
 
 var Bullet = new Phaser.Class({
     Extends: Phaser.GameObjects.Image,
@@ -87,7 +88,7 @@ gameScene.create = function(){
     //setup for the game
     let background = this.add.image(0,0,'background')
     background.setOrigin(0,0)
-    player = this.physics.add.sprite(100,100,'player')
+    player = this.physics.add.sprite(1000,600,'player')
     player.setScale(0.5);
     player.setCollideWorldBounds(true);
     dragonPlayer = this.physics.add.sprite(2200,100,'dragon')
@@ -98,10 +99,7 @@ gameScene.create = function(){
         repeat:2,
         setXY:{x:180,y:60,stepX:100}
     })
-    let bullets = this.physics.add.group({
-        classType: Bullet,
-        runChildUpdate: true
-    })
+   
     dragons.children.iterate(function(dragon){
         dragon.setVelocity(0,200);
         dragon.setCollideWorldBounds(true)
@@ -136,38 +134,78 @@ gameScene.create = function(){
     this.cameras.main.setBounds(0,0,2240,1260)
     this.cameras.main.setSize(500,500)
     this.cameras.main.startFollow(player);
-    this.cameras.add(500,0,500,500);
+    this.cameras.add(510,0,500,500);
     this.cameras.cameras[1].setBounds(0,0,2240,1260)
     this.cameras.cameras[1].startFollow(dragonPlayer);
     
     
-
-    let bulletStartX;
-    let bulletStartY;
-    this.input.on('pointermove',(pointer)=>{
-        bulletStartX = pointer.x+this.cameras.main.scrollX;
-        bulletStartY = pointer.y+this.cameras.main.scrollY;
-    },this)
-    this.input.on('pointerdown',()=>{
+    let bullets = this.physics.add.group({
+        classType: Bullet,
+        runChildUpdate: true
+    })
+    
+   
+    keys = this.input.keyboard.addKeys({
+        'up':Phaser.Input.Keyboard.KeyCodes.UP,
+        'down':Phaser.Input.Keyboard.KeyCodes.DOWN,
+        'left':Phaser.Input.Keyboard.KeyCodes.LEFT,
+        'right':Phaser.Input.Keyboard.KeyCodes.RIGHT,
+        'fire':Phaser.Input.Keyboard.KeyCodes.CTRL,
+        'turnRight':Phaser.Input.Keyboard.KeyCodes.FORWARD_SLASH,
+        'turnLeft':Phaser.Input.Keyboard.KeyCodes.PERIOD
+    })
+    dragonKeys=this.input.keyboard.addKeys({
+        'up':Phaser.Input.Keyboard.KeyCodes.W,
+        'down':Phaser.Input.Keyboard.KeyCodes.S,
+        'left':Phaser.Input.Keyboard.KeyCodes.A,
+        'right':Phaser.Input.Keyboard.KeyCodes.D,
+        'fire':Phaser.Input.Keyboard.KeyCodes.SPACE,
+        'restart':Phaser.Input.Keyboard.KeyCodes.R,
+        'turnRight':Phaser.Input.Keyboard.KeyCodes.B,
+        'turnLeft':Phaser.Input.Keyboard.KeyCodes.V
+    })
+    this.input.keyboard.on('keydown_R',()=>{
+        if (!player.active || !dragonPlayer.active) {
+            player.enableBody(true, 100, 100, true)
+            treasure.enableBody(true, Phaser.Math.FloatBetween(100, 2100), Phaser.Math.FloatBetween(100, 1100), true, true)
+            dragonPlayer.enableBody(true, 2200, 100, true, true)
+            dragons.add(this.physics.add.sprite(Phaser.Math.FloatBetween(100, 2100), Phaser.Math.FloatBetween(100, 1100), 'dragon'), true)
+            console.log(dragons.getChildren().length)
+            dragons.children.iterate((dragon) => {
+                dragon.enableBody(true, Phaser.Math.FloatBetween(100, 2100), Phaser.Math.FloatBetween(100, 1100), true, true)
+                dragon.setVelocity(0, 200);
+                dragon.setCollideWorldBounds(true);
+                dragon.setBounce(1)
+            })
+        }
+        
+        
+    })
+    this.input.keyboard.on('keydown_SPACE',()=>{
+        console.log('fire')
         var bullet = bullets.get().setActive(true).setVisible(true);
         if(bullet){
-            bullet.fire(player,{x:bulletStartX,y:bulletStartY})
+            console.log("x: "+Math.acos(player.rotation)+ " and y: "+Math.asin(player.rotation))
+            bullet.fire(player,{x:player.x+Math.cos(player.rotation),y:player.y+Math.sin(player.rotation)})
             this.physics.add.collider(dragons,bullet,(bullet,dragon)=>{
                 dragon.disableBody(true,true)
                 bullet.destroy();
             })
         }
-        
     })
-    keys = this.input.keyboard.createCursorKeys();
-    dragonKeys=this.input.keyboard.addKeys({
-        'up':Phaser.Input.Keyboard.KeyCodes.W,
-        'down':Phaser.Input.Keyboard.KeyCodes.S,
-        'left':Phaser.Input.Keyboard.KeyCodes.A,
-        'right':Phaser.Input.Keyboard.KeyCodes.D
+    this.input.keyboard.on('keydown_CTRL',()=>{
+        console.log('fire')
+        var bullet = bullets.get().setActive(true).setVisible(true);
+        if(bullet){
+            bullet.fire(dragonPlayer,{x:dragonPlayer.x+Math.cos(dragonPlayer.rotation),y:dragonPlayer.y+Math.sin(dragonPlayer.rotation)})
+            this.physics.add.collider(dragons,bullet,(bullet,dragon)=>{
+                dragon.disableBody(true,true)
+                bullet.destroy();
+            })
+        }
     })
     
-
+    
     
 } 
 
@@ -183,63 +221,59 @@ gameScene.update = function(){
    })
 
     if(player.active){
-        if(dragonKeys['up'].isDown){
-            player.y-=playerSpeed
+        if(dragonKeys.turnLeft.isDown){
+            player.setAngle(player.angle-playerSpeed)
+        }else if(dragonKeys.turnRight.isDown){
+            player.setAngle(player.angle+playerSpeed)
         }
-        if(dragonKeys['down'].isDown){
+        if(dragonKeys['up'].isDown){
+            console.log(Math.sin(player.rotation)*playerSpeed+" "+Math.cos(player.rotation)*playerSpeed)
+            if(player.rotation>0){
+                player.x+=Math.sin(player.rotation)*playerSpeed
+                player.y+=Math.cos(player.rotation)*playerSpeed
+            }else{
+                player.x+=-Math.sin(player.rotation)*playerSpeed
+                player.y+=-Math.cos(player.rotation)*playerSpeed
+            }
+            
+            
+        }
+        else if(dragonKeys['down'].isDown){
             player.y+=playerSpeed
         }
         if(dragonKeys['left'].isDown){
             player.x-=playerSpeed
         }
-        if(dragonKeys['right'].isDown){
+        else if(dragonKeys['right'].isDown){
             player.x+=playerSpeed
         }
+        
     }else{
-        if(keys.space.isDown){
-            
-            player.enableBody(true, 100, 100, true)
-            treasure.enableBody(true, Phaser.Math.FloatBetween(100, 2100), Phaser.Math.FloatBetween(100, 1100), true, true)
-            dragonPlayer.enableBody(true, 2200, 100, true,true)
-            dragons.add(this.physics.add.sprite(Phaser.Math.FloatBetween(100, 2100), Phaser.Math.FloatBetween(100, 1100), 'dragon'), true)
-            console.log(dragons.getChildren().length)
-            dragons.children.iterate((dragon) => {
-                dragon.enableBody(true, Phaser.Math.FloatBetween(100, 2100), Phaser.Math.FloatBetween(100, 1100), true,true)
-                dragon.setVelocity(0, 200);
-                dragon.setCollideWorldBounds(true);
-                dragon.setBounce(1)
-            })
-        }
+        
     }
     
 
     if (dragonPlayer.active) {
+        if(keys.turnLeft.isDown){
+            dragonPlayer.setAngle(dragonPlayer.angle-playerSpeed)
+        }else if(keys.turnRight.isDown){
+            dragonPlayer.setAngle(dragonPlayer.angle+playerSpeed)
+        }
         if (keys.down.isDown) {
             dragonPlayer.y += playerSpeed
         }
-        if (keys.up.isDown) {
+        else if (keys.up.isDown) {
             dragonPlayer.y -= playerSpeed
         }
         if (keys.right.isDown) {
             dragonPlayer.x += playerSpeed
         }
-        if (keys.left.isDown) {
+        else if (keys.left.isDown) {
             dragonPlayer.x -= playerSpeed
         }
+        
     }else{
-        if (keys.space.isDown) {
-            player.enableBody(true, 100, 100, true)
-            treasure.enableBody(true, Phaser.Math.FloatBetween(100, 2100), Phaser.Math.FloatBetween(100, 1100), true, true)
-            dragonPlayer.enableBody(true, 2200, 100, true,true)
-            dragons.add(this.physics.add.sprite(Phaser.Math.FloatBetween(100, 2100), Phaser.Math.FloatBetween(100, 1100), 'dragon'), true)
-            console.log(dragons.getChildren().length)
-            dragons.children.iterate((dragon) => {
-                dragon.enableBody(true, Phaser.Math.FloatBetween(100, 2100), Phaser.Math.FloatBetween(100, 1100), true)
-                dragon.setVelocity(0, 200);
-                dragon.setCollideWorldBounds(true);
-                dragon.setBounce(1)
-            })
-        }
+       
     }
     
 }
